@@ -1,4 +1,4 @@
-export type SubscriptionSource = 'LH' | 'SH' | 'GH' | 'IH' | 'HOME';
+export type SubscriptionSource = 'LH' | 'HOME';
 export type SubscriptionType = 'APT' | 'OFFICETEL' | 'CITY_HOUSE' | 'PRIVATE_RENT' | 'PRE_APT';
 
 export interface SubscriptionEvent {

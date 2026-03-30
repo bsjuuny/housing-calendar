@@ -1,23 +1,28 @@
 import { SubscriptionEvent } from '../types/subscription';
 import { fetchChungyakHome } from './chungyak-home';
 import { fetchLH } from './lh';
-import { fetchGH, fetchIH, fetchSH } from './regional';
+
+let cachedSubscriptions: SubscriptionEvent[] | null = null;
+let lastFetchTime = 0;
+const CACHE_TTL = 1000 * 60 * 5; // 5 minutes cache
 
 export async function getAllSubscriptions(): Promise<SubscriptionEvent[]> {
-  // 클라이언트 사이드(브라우저)에서도 최신화를 위해 호출 허용
-  console.log(`[DEBUG] Fetching subscriptions at ${new Date().toLocaleString('ko-KR')} (Client: ${typeof window !== 'undefined'})`);
+  const now = Date.now();
+  if (cachedSubscriptions && (now - lastFetchTime < CACHE_TTL)) {
+    console.log(`[CACHE] Returning ${cachedSubscriptions.length} items from memory`);
+    return cachedSubscriptions;
+  }
+
+  console.log(`[DEBUG] Fetching subscriptions at ${new Date().toLocaleString('ko-KR')} (Server-side)`);
 
   try {
     const results = await Promise.allSettled([
       fetchChungyakHome(),
       fetchLH(),
-      fetchGH(),
-      fetchIH(),
-      fetchSH(),
     ]);
 
     const combined: SubscriptionEvent[] = [];
-    const sourceNames = ['HOME', 'LH', 'GH', 'IH', 'SH'];
+    const sourceNames = ['HOME', 'LH'];
 
     results.forEach((res, i) => {
       if (res.status === 'fulfilled') {
@@ -30,6 +35,10 @@ export async function getAllSubscriptions(): Promise<SubscriptionEvent[]> {
     });
 
     console.log(`[TOTAL] Combined ${combined.length} items`);
+
+    cachedSubscriptions = combined;
+    lastFetchTime = now;
+
     return combined;
   } catch (error) {
     console.error('API Aggregation Error:', error);

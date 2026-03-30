@@ -3,6 +3,7 @@ import path from 'path';
 import cron from 'node-cron';
 import { isSameDay } from 'date-fns';
 import axios from 'axios';
+import { sendNotification } from '../../antigravity-bot/scripts/notify.mjs';
 
 function getEnv() {
   const envPath = path.resolve(process.cwd(), '.env.local');
@@ -26,27 +27,16 @@ function parseDate(dateStr) {
   return new Date(dateStr);
 }
 
-async function sendTelegram(message, attempt = 1) {
-  const token = env['TELEGRAM_BOT_TOKEN'];
-  const chatId = env['TELEGRAM_CHAT_ID'];
-  if (!token || !chatId) return;
-
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+async function sendTelegram(message) {
   try {
-    // 🛡️ Axios + Timeout 30s로 안정성 극대화
-    await axios.post(url, {
-      chat_id: chatId,
-      text: message,
+    // 전역 notify.mjs 허브 사용 (IPv4 고정 및 안정성 확보)
+    await sendNotification(message, {
+      prefix: '🏠 [Housing]',
+      force: true, // 청약 알림은 하루 1~2회로 적고 중요함으로 쿨타임 무시
       parse_mode: 'Markdown'
-    }, { timeout: 30000 });
-    
-    console.log(`[Telegram] 전송 성공! (시도: ${attempt})`);
+    });
   } catch (e) {
-    console.error(`[Telegram] 실패 (시도 ${attempt}/3):`, e.message);
-    if (attempt < 3) {
-      await new Promise(r => setTimeout(r, attempt * 5000));
-      return sendTelegram(message, attempt + 1);
-    }
+    console.error(`[Telegram] 전송 실패:`, e.message);
   }
 }
 
@@ -134,6 +124,22 @@ async function runNotifier() {
   await sendTelegram(message);
 }
 
-cron.schedule('50 11 * * *', () => { runNotifier(); });
-console.log('✅ Housing Notifier (ID 7) 무적 모드 가동 중 (11:50 AM)');
+// 11:50 AM (주력)
+cron.schedule('50 11 * * *', () => {
+  runNotifier().catch(e => console.error('[Housing] runNotifier 실패:', e.message));
+}, { timezone: 'Asia/Seoul' });
+
+// 18:50 PM (백업)
+cron.schedule('50 18 * * *', () => {
+  runNotifier().catch(e => console.error('[Housing] runNotifier 실패:', e.message));
+}, { timezone: 'Asia/Seoul' });
+
+console.log('✅ Housing Notifier (ID 7) 가동 중 (11:50, 18:50 Asia/Seoul)');
 // runNotifier();
+
+// 🛡️ 심폐소생기: 1시간마다 더미 작업 수행 (프로세스 종료 방지)
+setInterval(() => {
+  const now = new Date();
+  console.log(`[Keep-Alive] 🏠 Housing Notifier 심동 감지 중... (${now.toLocaleString('ko-KR')})`);
+}, 1000 * 60 * 60);
+

@@ -1,10 +1,17 @@
 import { SubscriptionEvent } from '../types/subscription';
 
-export async function fetchLH(page = 1, size = 100): Promise<SubscriptionEvent[]> {
-  const LH_API_KEY = process.env.LH_API_KEY;
-  // B552555 서비스 엔드포인트의 '1' 제거 및 최신화
-  const LH_URL = 'https://apis.data.go.kr/B552555/lhLeaseNoticeInfo/getLeaseNoticeInfo';
+const formatDate = (raw: string) => {
+  if (!raw) return '';
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length >= 8) {
+    return `${digits.substring(0, 4)}-${digits.substring(4, 6)}-${digits.substring(6, 8)}`;
+  }
+  return raw;
+};
 
+export async function fetchLH(page = 1, size = 100): Promise<SubscriptionEvent[]> {
+  const LH_API_KEY = process.env.LH_API_KEY || process.env.NEXT_PUBLIC_PUBLIC_DATA_KEY;
+  // B552555 서비스 엔드포인트의 '1' 제거 및 최신화
   if (!LH_API_KEY) {
     console.warn('[LH] Missing LH_API_KEY');
     return [];
@@ -12,37 +19,64 @@ export async function fetchLH(page = 1, size = 100): Promise<SubscriptionEvent[]
 
   try {
     const decodedKey = decodeURIComponent(LH_API_KEY);
-    const url = `${LH_URL}?serviceKey=${decodedKey}&PG_SZ=${size}&PAGE=${page}&_type=json`;
-    const response = await fetch(url);
+    // 가장 최신이자 안정적인 LH 분양임대공고문 엔드포인트를 사용합니다.
+    const urlObj = new URL('http://apis.data.go.kr/B552555/lhLeaseNoticeInfo1/lhLeaseNoticeInfo1');
+    urlObj.searchParams.set('serviceKey', decodedKey);
+    urlObj.searchParams.set('PG_SZ', size.toString());
+    urlObj.searchParams.set('PAGE', page.toString());
+    urlObj.searchParams.set('_type', 'json');
+    
+    const response = await fetch(urlObj.toString(), {
+      headers: {
+        'Accept': 'application/json',
+      }
+    });
 
     if (!response.ok) {
-        console.error(`[LH] API Error: ${response.status}`);
+        const errorText = await response.text().catch(() => 'No Body');
+        console.error(`[LH] API Error: ${response.status} - ${errorText}`);
         return [];
     }
 
     const text = await response.text();
-    
-    // 만약 JSON 요청을 했음에도 XML이 반환되는 상황을 대비해 체크합니다.
-    if (text.trim().startsWith('<?xml') || text.trim().startsWith('<response')) {
-      console.warn('[LH] Received XML instead of JSON. Check if API key is valid or data exists.');
+    if (text.trim().startsWith('<?xml')) {
+      console.warn('[LH] Received XML. Key may not be authorized for JSON or data exists as XML only.');
       return [];
     }
 
     const data = JSON.parse(text);
-    // LH API 특유의 응답 구조 체크 ([0]은 카운트, [1]은 데이터 리스트인 경우가 많음)
-    const items = data[1]?.dsList || [];
+    // LH API는 버전/엔드포인트마다 dsList 위치가 다릅니다.
+    let items = [];
+    if (Array.isArray(data)) {
+        items = data[1]?.dsList || data[0]?.dsList || [];
+    } else if (data?.dsList) {
+        items = data.dsList;
+    } else if (data?.items) {
+        items = data.items;
+    } else if (data?.row) {
+        items = data.row;
+    }
+    
+    if (items.length === 0) {
+        console.warn(`[LH] No items found. Structure: ${JSON.stringify(data).substring(0, 100)}`);
+    }
 
-    return items.map((item: any) => ({
-      id: `lh-${item.PAN_ID || Math.random()}`,
-      title: item.PAN_NM || 'LH 주택공고',
-      source: 'LH',
-      type: 'APT',
-      region: item.CNP_NM || '전국',
-      startDate: item.PAN_NT_DT || '',
-      endDate: item.CLSG_DT || '',
-      announcementDate: item.PAN_NT_DT || '',
-      url: `https://apply.lh.or.kr/`,
-    }));
+    return items.map((item: any) => {
+      const ntDt = item.PAN_NT_DT || item.PAN_DT || '';
+      const clsgDt = item.CLSG_DT || item.PAN_ED_DT || '';
+      
+      return {
+        id: `lh-${item.PAN_ID || Math.random()}`,
+        title: item.PAN_NM || 'LH 주택공고',
+        source: 'LH',
+        type: 'APT',
+        region: item.CNP_NM || '전국',
+        startDate: formatDate(ntDt),
+        endDate: formatDate(clsgDt),
+        announcementDate: formatDate(ntDt),
+        url: `https://apply.lh.or.kr/`,
+      };
+    });
   } catch (error) {
     console.error('[LH] Critical Fetch Error:', error);
     return [];

@@ -5,25 +5,18 @@ dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 import { fetchChungyakHome } from '../src/lib/api/chungyak-home';
 import { fetchLH } from '../src/lib/api/lh';
-import { fetchGH, fetchIH, fetchSH } from '../src/lib/api/regional';
 
 async function runTest() {
     console.log('--- API Connectivity Test Start ---');
     console.log('ENV KEYS CHECK:');
     console.log('NEXT_PUBLIC_PUBLIC_DATA_KEY:', process.env.NEXT_PUBLIC_PUBLIC_DATA_KEY ? 'EXISTS' : 'MISSING');
     console.log('LH_API_KEY:', process.env.LH_API_KEY ? 'EXISTS' : 'MISSING');
-    console.log('GH_API_KEY:', process.env.GH_API_KEY ? 'EXISTS' : 'MISSING');
-    console.log('IH_API_KEY:', process.env.IH_API_KEY ? 'EXISTS' : 'MISSING');
-    console.log('SH_API_KEY:', process.env.SH_API_KEY ? 'EXISTS' : 'MISSING');
 
     console.log('\nFetching Data...');
 
     const tasks = [
         { name: 'HOME', fn: fetchChungyakHome },
         { name: 'LH', fn: fetchLH },
-        { name: 'GH', fn: fetchGH },
-        { name: 'IH', fn: fetchIH },
-        { name: 'SH', fn: fetchSH },
     ];
 
     for (const task of tasks) {
