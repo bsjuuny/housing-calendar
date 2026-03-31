@@ -5,6 +5,29 @@ import { isSameDay } from 'date-fns';
 import axios from 'axios';
 import { sendNotification } from '../../antigravity-bot/scripts/notify.mjs';
 
+// ── 단일 인스턴스 보장 (PID 파일 락) ──────────────────────────
+const PID_FILE = path.resolve(process.cwd(), 'data/notifier.pid');
+
+function acquireLock() {
+  fs.mkdirSync(path.dirname(PID_FILE), { recursive: true });
+  try {
+    const existingPid = parseInt(fs.readFileSync(PID_FILE, 'utf-8').trim(), 10);
+    if (existingPid && existingPid !== process.pid) {
+      try {
+        process.kill(existingPid, 0); // 프로세스 존재 확인 (신호 0 = 체크만)
+        console.error(`[PID Lock] 이미 실행 중인 인스턴스 감지 (PID: ${existingPid}). 종료합니다.`);
+        process.exit(0);
+      } catch {
+        // 해당 PID가 없으면 (죽은 프로세스) → 락 파일 덮어쓰기
+      }
+    }
+  } catch { /* 파일 없으면 그냥 통과 */ }
+  fs.writeFileSync(PID_FILE, String(process.pid));
+}
+
+acquireLock();
+// ───────────────────────────────────────────────────────────────
+
 const SENT_LOG = path.resolve(process.cwd(), 'data/notifier_sent.json');
 
 function getTodayKey() {
