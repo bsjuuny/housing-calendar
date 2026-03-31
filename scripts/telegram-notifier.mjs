@@ -107,11 +107,15 @@ async function runNotifier() {
   const divider = '─────────────────';
   let message = `🏠 *오늘의 청약 알림*\n📅 ${formatDateKo(today)}\n`;
 
+  const MAX_SHOW = 10;
+
   if (todayEvents.length === 0) {
     message += `\n${divider}\n💡 오늘 새로 시작되는 청약 일정이 없습니다.\n${divider}\n\n📎 [전체 일정 달력 보기](https://bsjuu.github.io/housingcalendar/)`;
   } else {
+    const showEvents = todayEvents.slice(0, MAX_SHOW);
+    const remaining = todayEvents.length - showEvents.length;
     message += `\n${divider}\n`;
-    todayEvents.forEach((ev, i) => {
+    showEvents.forEach((ev, i) => {
       message += `*${i + 1} / ${todayEvents.length}건*\n\n`;
       message += `🏢 *${ev.title}*\n`;
       message += `🏷 ${ev.source}\n`;
@@ -119,6 +123,9 @@ async function runNotifier() {
       message += `📆 접수 시작: ${formatStartDate(ev.startDate)}\n`;
       message += `${divider}\n`;
     });
+    if (remaining > 0) {
+      message += `\n📋 외 *${remaining}건* 더 있습니다.\n`;
+    }
     message += `\n📎 [전체 일정 달력 보기](https://bsjuu.github.io/housingcalendar/)`;
   }
   await sendTelegram(message);
