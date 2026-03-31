@@ -5,6 +5,32 @@ import { isSameDay } from 'date-fns';
 import axios from 'axios';
 import { sendNotification } from '../../antigravity-bot/scripts/notify.mjs';
 
+const SENT_LOG = path.resolve(process.cwd(), 'data/notifier_sent.json');
+
+function getTodayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function alreadySentToday(scheduleKey) {
+  try {
+    const data = JSON.parse(fs.readFileSync(SENT_LOG, 'utf-8'));
+    return data[getTodayKey()]?.includes(scheduleKey);
+  } catch { return false; }
+}
+
+function markSentToday(scheduleKey) {
+  try {
+    const key = getTodayKey();
+    let data = {};
+    try { data = JSON.parse(fs.readFileSync(SENT_LOG, 'utf-8')); } catch {}
+    if (!data[key]) data[key] = [];
+    if (!data[key].includes(scheduleKey)) data[key].push(scheduleKey);
+    fs.mkdirSync(path.dirname(SENT_LOG), { recursive: true });
+    fs.writeFileSync(SENT_LOG, JSON.stringify(data, null, 2));
+  } catch (e) { console.error('[SentLog] 기록 실패:', e.message); }
+}
+
 function getEnv() {
   const envPath = path.resolve(process.cwd(), '.env.local');
   if (!fs.existsSync(envPath)) return {};
@@ -93,7 +119,11 @@ function formatStartDate(dateStr) {
   return dateStr;
 }
 
-async function runNotifier() {
+async function runNotifier(scheduleKey = 'default') {
+  if (alreadySentToday(scheduleKey)) {
+    console.log(`[${new Date().toLocaleString('ko-KR')}] ⏭️ 오늘 ${scheduleKey} 이미 발송됨 - 스킵`);
+    return;
+  }
   console.log(`[${new Date().toLocaleString('ko-KR')}] 🏠 청약 알림 태스크 시동...`);
   const [home, lh] = await Promise.all([fetchChungyakHome(), fetchLH()]);
   const allEvents = [...home, ...lh];
@@ -129,16 +159,17 @@ async function runNotifier() {
     message += `\n📎 [전체 일정 달력 보기](https://bsjuu.github.io/housingcalendar/)`;
   }
   await sendTelegram(message);
+  markSentToday(scheduleKey);
 }
 
 // 11:50 AM (주력)
 cron.schedule('50 11 * * *', () => {
-  runNotifier().catch(e => console.error('[Housing] runNotifier 실패:', e.message));
+  runNotifier('morning').catch(e => console.error('[Housing] runNotifier 실패:', e.message));
 }, { timezone: 'Asia/Seoul' });
 
 // 18:50 PM (백업)
 cron.schedule('50 18 * * *', () => {
-  runNotifier().catch(e => console.error('[Housing] runNotifier 실패:', e.message));
+  runNotifier('evening').catch(e => console.error('[Housing] runNotifier 실패:', e.message));
 }, { timezone: 'Asia/Seoul' });
 
 console.log('✅ Housing Notifier (ID 7) 가동 중 (11:50, 18:50 Asia/Seoul)');
