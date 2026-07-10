@@ -36,10 +36,17 @@ export async function getAllSubscriptions(): Promise<SubscriptionEvent[]> {
 
     console.log(`[TOTAL] Combined ${combined.length} items`);
 
-    cachedSubscriptions = combined;
+    // 2026년 이후 데이터만 필터링 (빌드 및 런타임 최적화)
+    const currentYear = new Date().getFullYear(); // 2026
+    const targetYearStr = `${currentYear}-01-01`;
+    const filtered = combined.filter(e => e.id && (e.startDate >= targetYearStr)).sort((a, b) => a.startDate.localeCompare(b.startDate));
+    
+    console.log(`[DATA AUDIT] Filtered 2026+ Total: ${filtered.length} items (Excluded ${combined.length - filtered.length} legacy items)`);
+
+    cachedSubscriptions = filtered;
     lastFetchTime = now;
 
-    return combined;
+    return filtered;
   } catch (error) {
     console.error('API Aggregation Error:', error);
     return [];

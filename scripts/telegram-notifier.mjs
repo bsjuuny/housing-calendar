@@ -17,12 +17,21 @@ function acquireLock() {
         process.kill(existingPid, 0); // 프로세스 존재 확인 (신호 0 = 체크만)
         console.error(`[PID Lock] 이미 실행 중인 인스턴스 감지 (PID: ${existingPid}). 종료합니다.`);
         process.exit(0);
-      } catch {
-        // 해당 PID가 없으면 (죽은 프로세스) → 락 파일 덮어쓰기
+      } catch (err) {
+        if (err.code === 'EPERM') {
+          // Windows에서 EPERM = 프로세스가 존재하지만 신호를 보낼 권한 없음 → 살아있음으로 처리
+          console.error(`[PID Lock] 이미 실행 중인 인스턴스 감지 (PID: ${existingPid}, EPERM). 종료합니다.`);
+          process.exit(0);
+        }
+        // ESRCH = 프로세스 없음 (죽은 PID) → 락 파일 덮어쓰기 진행
       }
     }
-  } catch { /* 파일 없으면 그냥 통과 */ }
+  } catch { /* PID 파일 없으면 그냥 통과 */ }
   fs.writeFileSync(PID_FILE, String(process.pid));
+  // 프로세스 종료 시 PID 파일 정리
+  process.on('exit', () => { try { fs.unlinkSync(PID_FILE); } catch {} });
+  process.on('SIGTERM', () => process.exit(0));
+  process.on('SIGINT',  () => process.exit(0));
 }
 
 acquireLock();
@@ -142,7 +151,7 @@ function formatStartDate(dateStr) {
   return dateStr;
 }
 
-async function runNotifier(scheduleKey = 'default') {
+export async function runNotifier(scheduleKey = 'default') {
   if (alreadySentToday(scheduleKey)) {
     console.log(`[${new Date().toLocaleString('ko-KR')}] ⏭️ 오늘 ${scheduleKey} 이미 발송됨 - 스킵`);
     return;
@@ -181,26 +190,25 @@ async function runNotifier(scheduleKey = 'default') {
     }
     message += `\n📎 [전체 일정 달력 보기](https://bsjuu.github.io/housingcalendar/)`;
   }
+  markSentToday(scheduleKey); // 전송 직전 마킹 (세션을 먼저 물고 들어감)
   await sendTelegram(message);
-  markSentToday(scheduleKey);
 }
 
 // 11:50 AM (주력)
-cron.schedule('50 11 * * *', () => {
-  runNotifier('morning').catch(e => console.error('[Housing] runNotifier 실패:', e.message));
-}, { timezone: 'Asia/Seoul' });
+// cron.schedule('50 11 * * *', () => {
+//   runNotifier('morning').catch(e => console.error('[Housing] runNotifier 실패:', e.message));
+// }, { timezone: 'Asia/Seoul' });
 
 // 18:50 PM (백업)
-cron.schedule('50 18 * * *', () => {
-  runNotifier('evening').catch(e => console.error('[Housing] runNotifier 실패:', e.message));
-}, { timezone: 'Asia/Seoul' });
+// cron.schedule('50 18 * * *', () => {
+//   runNotifier('evening').catch(e => console.error('[Housing] runNotifier 실패:', e.message));
+// }, { timezone: 'Asia/Seoul' });
 
-console.log('✅ Housing Notifier (ID 7) 가동 중 (11:50, 18:50 Asia/Seoul)');
-// runNotifier();
+console.log('✅ Housing Notifier (ID 7) 가동 준비 완료 (수동/스케줄러 대기)');
 
-// 🛡️ 심폐소생기: 1시간마다 더미 작업 수행 (프로세스 종료 방지)
-setInterval(() => {
-  const now = new Date();
-  console.log(`[Keep-Alive] 🏠 Housing Notifier 심동 감지 중... (${now.toLocaleString('ko-KR')})`);
-}, 1000 * 60 * 60);
+// 🛡️ 심폐소생기: 1시간마다 더미 작업 수행 (프로세스 종료 방지 - 단독 실행시만 필요)
+// setInterval(() => {
+//   const now = new Date();
+//   console.log(`[Keep-Alive] 🏠 Housing Notifier 심동 감지 중... (${now.toLocaleString('ko-KR')})`);
+// }, 1000 * 60 * 60);
 
