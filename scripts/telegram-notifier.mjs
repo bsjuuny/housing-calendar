@@ -112,7 +112,10 @@ async function fetchChungyakHome() {
       region: item.HSSPLY_ADRES,
       source: '청약홈'
     }));
-  } catch (e) { return []; }
+  } catch (e) {
+    console.error('[ChungyakHome] 조회 실패:', e.message);
+    return [];
+  }
 }
 
 async function fetchLH() {
@@ -129,7 +132,10 @@ async function fetchLH() {
       region: item.CNP_NM || '전국',
       source: 'LH'
     }));
-  } catch (e) { return []; }
+  } catch (e) {
+    console.error('[LH] 조회 실패:', e.message);
+    return [];
+  }
 }
 
 const DAY_KO = ['일', '월', '화', '수', '목', '금', '토'];

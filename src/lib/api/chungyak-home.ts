@@ -13,7 +13,10 @@ const fetchPages = async (endpoint: string, API_KEY: string, pageCount: number):
     const fetchPage = async (p: number) => {
         const url = `https://api.odcloud.kr/api/ApplyhomeInfoDetailSvc/v1/${endpoint}?page=${p}&perPage=100&serviceKey=${API_KEY}`;
         const resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
-        if (!resp.ok) return [];
+        if (!resp.ok) {
+            console.error(`[HOME] Page ${p} (${endpoint}) fetch failed: ${resp.status}`);
+            return [];
+        }
         const d = await resp.json().catch(() => ({}));
         return d.data || [];
     };
