@@ -38,6 +38,31 @@ acquireLock();
 // ───────────────────────────────────────────────────────────────
 
 const SENT_LOG = path.resolve(process.cwd(), 'data/notifier_sent.json');
+const PREFERENCES_FILE = path.resolve(process.cwd(), 'data/notify-preferences.json');
+
+/**
+ * 관심 지역 필터. `data/notify-preferences.json`에 `{ "regions": ["서울", "경기"] }`처럼
+ * 적어두면 그 지역 문자열을 포함하는 공고만 알림에 남긴다. 파일이 없거나 regions가
+ * 비어있으면(기본값) 기존과 동일하게 전체를 보낸다 — 하위호환 유지.
+ */
+function loadPreferences() {
+  if (!fs.existsSync(PREFERENCES_FILE)) {
+    return { regions: [] };
+  }
+  try {
+    const raw = JSON.parse(fs.readFileSync(PREFERENCES_FILE, 'utf-8'));
+    const regions = Array.isArray(raw.regions) ? raw.regions.filter((r) => typeof r === 'string' && r.trim()) : [];
+    return { regions };
+  } catch (e) {
+    console.error(`[Preferences] ${PREFERENCES_FILE} 파싱 실패, 필터 없이 전체 발송으로 진행:`, e.message);
+    return { regions: [] };
+  }
+}
+
+function matchesRegionFilter(event, regions) {
+  if (regions.length === 0) return true;
+  return regions.some((region) => event.region && event.region.includes(region));
+}
 
 function getTodayKey() {
   const d = new Date();
@@ -167,18 +192,28 @@ export async function runNotifier(scheduleKey = 'default') {
   const allEvents = [...home, ...lh];
   const today = new Date();
 
-  const todayEvents = allEvents.filter(e => {
+  const { regions } = loadPreferences();
+  const todayEventsUnfiltered = allEvents.filter(e => {
     const sDate = parseDate(e.startDate);
     return sDate && isSameDay(sDate, today);
   });
+  const todayEvents = todayEventsUnfiltered.filter((e) => matchesRegionFilter(e, regions));
+  const filteredOutCount = todayEventsUnfiltered.length - todayEvents.length;
 
   const divider = '─────────────────';
   let message = `🏠 *오늘의 청약 알림*\n📅 ${formatDateKo(today)}\n`;
+  if (regions.length > 0) {
+    message += `🔎 관심 지역 필터: ${regions.join(', ')}\n`;
+  }
 
   const MAX_SHOW = 10;
 
   if (todayEvents.length === 0) {
-    message += `\n${divider}\n💡 오늘 새로 시작되는 청약 일정이 없습니다.\n${divider}\n\n📎 [전체 일정 달력 보기](https://bsjuu.github.io/housingcalendar/)`;
+    const noneMessage =
+      regions.length > 0 && filteredOutCount > 0
+        ? `💡 오늘 새 청약이 ${filteredOutCount}건 있지만, 관심 지역 조건에 맞는 공고는 없습니다.`
+        : '💡 오늘 새로 시작되는 청약 일정이 없습니다.';
+    message += `\n${divider}\n${noneMessage}\n${divider}\n\n📎 [전체 일정 달력 보기](https://bsjuu.github.io/housingcalendar/)`;
   } else {
     const showEvents = todayEvents.slice(0, MAX_SHOW);
     const remaining = todayEvents.length - showEvents.length;

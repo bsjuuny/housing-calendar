@@ -1,6 +1,7 @@
 import { SubscriptionEvent } from '../types/subscription';
 import { fetchChungyakHome } from './chungyak-home';
 import { fetchLH } from './lh';
+import { dedupeEvents } from '../dedup';
 
 let cachedSubscriptions: SubscriptionEvent[] | null = null;
 let lastFetchTime = 0;
@@ -36,12 +37,17 @@ export async function getAllSubscriptions(): Promise<SubscriptionEvent[]> {
 
     console.log(`[TOTAL] Combined ${combined.length} items`);
 
+    const deduped = dedupeEvents(combined);
+    if (deduped.length !== combined.length) {
+      console.log(`[DEDUP] Removed ${combined.length - deduped.length} LH announcements already listed on 청약홈`);
+    }
+
     // 2026년 이후 데이터만 필터링 (빌드 및 런타임 최적화)
     const currentYear = new Date().getFullYear(); // 2026
     const targetYearStr = `${currentYear}-01-01`;
-    const filtered = combined.filter(e => e.id && (e.startDate >= targetYearStr)).sort((a, b) => a.startDate.localeCompare(b.startDate));
-    
-    console.log(`[DATA AUDIT] Filtered 2026+ Total: ${filtered.length} items (Excluded ${combined.length - filtered.length} legacy items)`);
+    const filtered = deduped.filter(e => e.id && (e.startDate >= targetYearStr)).sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+    console.log(`[DATA AUDIT] Filtered 2026+ Total: ${filtered.length} items (Excluded ${deduped.length - filtered.length} legacy items)`);
 
     cachedSubscriptions = filtered;
     lastFetchTime = now;

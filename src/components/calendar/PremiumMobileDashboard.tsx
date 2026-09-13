@@ -4,35 +4,56 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, isToday, addDays, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { 
-  Building2, 
-  MapPin, 
-  Calendar as CalendarIcon, 
-  ArrowRight, 
-  TrendingUp, 
+import {
+  Building2,
+  MapPin,
+  Calendar as CalendarIcon,
+  ArrowRight,
+  TrendingUp,
   Bell,
   Search,
   CheckCircle2,
   Clock,
   ExternalLink,
-  Star
+  Star,
+  Download
 } from 'lucide-react';
 import { SubscriptionEvent } from '@/lib/types/subscription';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useAppStore } from '@/store/useAppStore';
+import { buildIcsCalendar } from '@/lib/ics';
 
 interface PremiumMobileDashboardProps {
   events: SubscriptionEvent[];
+  hasCalendarFeed?: boolean;
 }
 
-export default function PremiumMobileDashboard({ events }: PremiumMobileDashboardProps) {
+export default function PremiumMobileDashboard({ events, hasCalendarFeed = false }: PremiumMobileDashboardProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [activeSource, setActiveSource] = useState<string>('ALL');
 
   const { searchQuery, setSearchQuery, favorites, toggleFavorite, showFavoritesOnly, setShowFavoritesOnly } = useAppStore();
   const [isClient, setIsClient] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+
+  const handleExportFavorites = () => {
+    const favoriteEvents = events.filter((event) => favorites.includes(String(event.id)));
+    if (favoriteEvents.length === 0) {
+      window.alert('즐겨찾기한 공고가 없습니다. 먼저 관심 있는 공고에 별표를 눌러 주세요.');
+      return;
+    }
+    const ics = buildIcsCalendar(favoriteEvents, '즐겨찾기 청약 일정');
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'favorites.ics';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   React.useEffect(() => {
     setIsClient(true);
@@ -108,7 +129,7 @@ export default function PremiumMobileDashboard({ events }: PremiumMobileDashboar
             >
               <Search className="w-5 h-5" />
             </button>
-            <button 
+            <button
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
               className={cn(
                 "p-3 rounded-2xl border transition-colors relative",
@@ -117,8 +138,24 @@ export default function PremiumMobileDashboard({ events }: PremiumMobileDashboar
             >
               <Star className={cn("w-5 h-5", showFavoritesOnly && "fill-current")} />
             </button>
+            <button
+              onClick={handleExportFavorites}
+              className="p-3 rounded-2xl border bg-white/5 border-white/10 text-slate-400 transition-colors"
+              title="즐겨찾기 캘린더(.ics) 내보내기"
+            >
+              <Download className="w-5 h-5" />
+            </button>
           </div>
         </div>
+
+        {hasCalendarFeed && (
+          <Link
+            href="/calendar.ics"
+            className="mb-4 inline-block text-[10px] font-bold text-slate-600 underline underline-offset-2"
+          >
+            전체 일정 캘린더 구독(.ics)
+          </Link>
+        )}
 
         <AnimatePresence>
           {showSearch && (

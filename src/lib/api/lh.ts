@@ -74,7 +74,8 @@ export async function fetchLH(page = 1, size = 100): Promise<SubscriptionEvent[]
         startDate: formatDate(ntDt),
         endDate: formatDate(clsgDt),
         announcementDate: formatDate(ntDt),
-        url: `https://apply.lh.or.kr/`,
+        // 개별 공고 상세 링크(DTL_URL)가 있으면 그걸 쓰고, 없을 때만 LH 청약 홈으로 폴백.
+        url: item.DTL_URL || `https://apply.lh.or.kr/`,
       };
     });
   } catch (error) {

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ExternalLink, Calendar, MapPin, Building2, Bell, Share2, ArrowLeft } from 'lucide-react';
 import { SubscriptionEvent } from '@/lib/types/subscription';
 import { motion } from 'framer-motion';
+import EligibilityChecklist from './EligibilityChecklist';
 
 interface EventDetailContentProps {
   event: SubscriptionEvent | null;
@@ -116,6 +117,32 @@ export default function EventDetailContent({ event }: EventDetailContentProps) {
                 <div className="text-white text-xl font-black tabular-nums">{event.endDate}</div>
               </div>
             </div>
+
+            {/* Special/General Supply Schedule */}
+            {(event.specialSupplyStart || event.generalSupplyStart) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {event.specialSupplyStart && (
+                  <div className="p-6 rounded-[2rem] bg-white/5 border border-white/5">
+                    <div className="text-slate-500 text-xs font-black uppercase mb-2">특별공급 접수</div>
+                    <div className="text-white text-sm font-bold tabular-nums">
+                      {event.specialSupplyStart} ~ {event.specialSupplyEnd || event.specialSupplyStart}
+                    </div>
+                  </div>
+                )}
+                {event.generalSupplyStart && (
+                  <div className="p-6 rounded-[2rem] bg-white/5 border border-white/5">
+                    <div className="text-slate-500 text-xs font-black uppercase mb-2">
+                      일반공급 접수 (1순위·해당지역 기준)
+                    </div>
+                    <div className="text-white text-sm font-bold tabular-nums">
+                      {event.generalSupplyStart} ~ {event.generalSupplyEnd || event.generalSupplyStart}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <EligibilityChecklist />
 
             {/* Details */}
             <div className="space-y-4">

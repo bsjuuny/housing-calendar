@@ -36,6 +36,7 @@ yarn-error.log*
 
 # runtime state
 /data/
+/public/calendar.ics
 
 # vercel
 .vercel

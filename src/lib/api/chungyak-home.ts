@@ -52,6 +52,11 @@ export async function fetchChungyakHome(): Promise<SubscriptionEvent[]> {
             announcementDate: formatDate(item.RCRIT_PBLANC_DE || ''),
             url: item.PBLANC_URL || 'https://www.applyhome.co.kr/',
             unitCount: parseInt(item.TOT_SUPLY_HSHLDCO || item.TOT_HSSPLY_CO || '0', 10) || 0,
+            complexId: item.HOUSE_MANAGE_NO || undefined,
+            specialSupplyStart: formatDate(item.SPSPLY_RCEPT_BGNDE || ''),
+            specialSupplyEnd: formatDate(item.SPSPLY_RCEPT_ENDDE || ''),
+            generalSupplyStart: formatDate(item.GNRL_RNK1_CRSPAREA_RCPTDE || ''),
+            generalSupplyEnd: formatDate(item.GNRL_RNK1_CRSPAREA_ENDDE || ''),
         }));
 
         const remndrEvents: SubscriptionEvent[] = remndrItems.map((item: any) => {
@@ -69,6 +74,7 @@ export async function fetchChungyakHome(): Promise<SubscriptionEvent[]> {
                 announcementDate: formatDate(item.RCRIT_PBLANC_DE || ''),
                 url: item.PBLANC_URL || 'https://www.applyhome.co.kr/',
                 unitCount: parseInt(item.TOT_SUPLY_HSHLDCO || '0', 10) || 0,
+                complexId: item.HOUSE_MANAGE_NO || undefined,
             };
         });
 

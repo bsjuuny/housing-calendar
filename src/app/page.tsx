@@ -1,9 +1,15 @@
+import fs from 'fs';
+import path from 'path';
 import { getAllSubscriptions } from '@/lib/api';
 import Calendar from '@/components/calendar/Calendar';
+import Link from 'next/link';
 import { Home, LayoutGrid, Info, Search, Heart, User } from 'lucide-react';
 
 export default async function IndexPage() {
   const subscriptions = await getAllSubscriptions();
+  // generate-ics.mjs가 이번 빌드에서 (또는 이전 빌드에서) calendar.ics를 만들었을 때만
+  // 구독 링크를 노출한다 — 파일이 없는데 링크만 있으면 404로 이어진다.
+  const hasCalendarFeed = fs.existsSync(path.join(process.cwd(), 'public', 'calendar.ics'));
 
   if (subscriptions.length > 0) {
     const dates = subscriptions.map(s => s.startDate).filter(Boolean).sort();
@@ -53,7 +59,7 @@ export default async function IndexPage() {
 
       {/* The Calendar Main View - Edge-to-Edge on Mobile */}
       <section className="relative z-10 lg:glass-panel">
-        <Calendar events={subscriptions} />
+        <Calendar events={subscriptions} hasCalendarFeed={hasCalendarFeed} />
       </section>
 
       {/* Footer Credit - Hidden on Mobile for Premium Dashboard Feel */}
@@ -61,6 +67,14 @@ export default async function IndexPage() {
         <p className="text-slate-500 text-sm font-medium">© 2026 Metropolitan Housing Data Services. All rights reserved.</p>
         <div className="flex items-center justify-center gap-6 mt-4">
           <span className="text-xs font-bold text-slate-700 hover:text-slate-400 cursor-pointer transition-colors">데이터 출처: 공공데이터포털, LH, 청약홈</span>
+          {hasCalendarFeed && (
+            <Link
+              href="/calendar.ics"
+              className="text-xs font-bold text-slate-700 hover:text-blue-400 cursor-pointer transition-colors"
+            >
+              전체 일정 캘린더 구독(.ics)
+            </Link>
+          )}
         </div>
       </footer>
     </>

@@ -25,6 +25,7 @@ import { SubscriptionEvent } from '@/lib/types/subscription';
 import { useAppStore } from '@/store/useAppStore';
 import EventDetailModal from './EventDetailModal';
 import { cn } from '@/lib/utils';
+import { buildIcsCalendar } from '@/lib/ics';
 
 import { getAllSubscriptions } from '@/lib/api';
 import PremiumMobileDashboard from './PremiumMobileDashboard';
@@ -57,9 +58,11 @@ const getAccentColor = (source: string, region: string) => {
 
 interface CalendarProps {
   events: SubscriptionEvent[];
+  /** public/calendar.ics가 실제로 존재할 때만 구독 링크를 보여주기 위한 플래그. */
+  hasCalendarFeed?: boolean;
 }
 
-export default function Calendar({ events }: CalendarProps) {
+export default function Calendar({ events, hasCalendarFeed = false }: CalendarProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<SubscriptionEvent | null>(null);
@@ -74,6 +77,24 @@ export default function Calendar({ events }: CalendarProps) {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  const handleExportFavorites = () => {
+    const favoriteEvents = events.filter((event) => favorites.includes(String(event.id)));
+    if (favoriteEvents.length === 0) {
+      window.alert('즐겨찾기한 공고가 없습니다. 먼저 관심 있는 공고에 별표를 눌러 주세요.');
+      return;
+    }
+    const ics = buildIcsCalendar(favoriteEvents, '즐겨찾기 청약 일정');
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'favorites.ics';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Optimized Resize & View Strategy - Prevents jitter/loops
   useEffect(() => {
@@ -159,7 +180,7 @@ export default function Calendar({ events }: CalendarProps) {
 
   // Mobile Premium View Integration
   if (isMobile) {
-    return <PremiumMobileDashboard events={events} />;
+    return <PremiumMobileDashboard events={events} hasCalendarFeed={hasCalendarFeed} />;
   }
 
   return (
@@ -281,6 +302,13 @@ export default function Calendar({ events }: CalendarProps) {
               title="즐겨찾기 모아보기"
             >
               <Star className={cn("w-4 h-4 md:w-5 md:h-5", showFavoritesOnly && "fill-current")} />
+            </button>
+            <button
+              onClick={handleExportFavorites}
+              className="p-2.5 md:p-3 rounded-xl md:rounded-3xl transition-all active:scale-90 shadow-xl border bg-slate-900/50 backdrop-blur-3xl border-white/10 text-slate-400 hover:text-blue-400"
+              title="즐겨찾기 캘린더(.ics) 내보내기"
+            >
+              <Download className="w-4 h-4 md:w-5 md:h-5" />
             </button>
             <button
               onClick={() => setShowFilters(!showFilters)}

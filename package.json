@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run generate:ics && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate:ics": "tsx scripts/generate-ics.mjs"
   },
   "dependencies": {
     "axios": "^1.13.6",
@@ -30,6 +31,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   }
 }
